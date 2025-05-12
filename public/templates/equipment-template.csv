@@ -1,0 +1,3 @@
+name,type,brand,model,serial_number,installation_date,company_name
+Chambre froide positive,cold_storage,Carrier,XR500,CF123456,2025-01-15,Restaurant Le Provençal
+VMC Cuisine,vmc,Aldes,VEC420,VMC789012,2025-02-01,Restaurant Le Provençal
