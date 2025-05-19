@@ -26,6 +26,10 @@ export const useNotifications = () => {
         if (error) throw error;
         return data;
       } catch (error) {
+        if (error instanceof TypeError && error.message === 'Failed to fetch') {
+          toast.error('Impossible de charger les notifications. Vérifiez votre connexion internet.');
+          return [];
+        }
         console.error('Error fetching notifications:', error);
         return [];
       }
@@ -51,6 +55,10 @@ export const useNotifications = () => {
         if (error) throw error;
         return data;
       } catch (error) {
+        if (error instanceof TypeError && error.message === 'Failed to fetch') {
+          toast.error('Impossible de charger les notifications non lues. Vérifiez votre connexion internet.');
+          return [];
+        }
         console.error('Error fetching unread notifications:', error);
         return [];
       }
@@ -116,6 +124,10 @@ export const useNotifications = () => {
         
         return notificationPrefs;
       } catch (error) {
+        if (error instanceof TypeError && error.message === 'Failed to fetch') {
+          toast.error('Impossible de charger les préférences. Vérifiez votre connexion internet.');
+          return defaultPreferences;
+        }
         console.error('Error fetching notification preferences:', error);
         return defaultPreferences;
       }
@@ -125,13 +137,21 @@ export const useNotifications = () => {
 
   const markAsRead = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('id', id);
-      
-      if (error) throw error;
-      return { success: true };
+      try {
+        const { error } = await supabase
+          .from('notifications')
+          .update({ read: true })
+          .eq('id', id);
+        
+        if (error) throw error;
+        return { success: true };
+      } catch (error) {
+        if (error instanceof TypeError && error.message === 'Failed to fetch') {
+          toast.error('Impossible de marquer la notification comme lue. Vérifiez votre connexion internet.');
+          throw error;
+        }
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
@@ -143,18 +163,26 @@ export const useNotifications = () => {
 
   const markAllAsRead = useMutation({
     mutationFn: async () => {
-      if (!user?.id) {
-        throw new Error('User not authenticated');
+      try {
+        if (!user?.id) {
+          throw new Error('User not authenticated');
+        }
+        
+        const { error } = await supabase
+          .from('notifications')
+          .update({ read: true })
+          .eq('user_id', user.id)
+          .eq('read', false);
+        
+        if (error) throw error;
+        return { success: true };
+      } catch (error) {
+        if (error instanceof TypeError && error.message === 'Failed to fetch') {
+          toast.error('Impossible de marquer les notifications comme lues. Vérifiez votre connexion internet.');
+          throw error;
+        }
+        throw error;
       }
-      
-      const { error } = await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('user_id', user.id)
-        .eq('read', false);
-      
-      if (error) throw error;
-      return { success: true };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
@@ -167,48 +195,56 @@ export const useNotifications = () => {
 
   const updatePreferences = useMutation({
     mutationFn: async (data: Partial<NotificationPreferences>) => {
-      if (!user?.id) {
-        throw new Error('User not authenticated');
-      }
-      
-      // First get current preferences
-      const { data: currentData, error: fetchError } = await supabase
-        .from('users')
-        .select('preferences')
-        .eq('id', user.id)
-        .maybeSingle();
-      
-      if (fetchError) throw fetchError;
-      
-      // If no preferences exist, start with defaults
-      const currentPreferences = currentData?.preferences || {
-        language: 'fr',
-        timezone: 'Europe/Paris',
-        notifications: defaultPreferences
-      };
-      
-      // Update notification preferences
-      const updatedPreferences = {
-        ...currentPreferences,
-        notifications: {
-          ...currentPreferences.notifications,
-          ...data
+      try {
+        if (!user?.id) {
+          throw new Error('User not authenticated');
         }
-      };
-      
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({ preferences: updatedPreferences })
-        .eq('id', user.id);
-      
-      if (updateError) throw updateError;
-      
-      // Return updated preferences
-      return {
-        ...defaultPreferences,
-        ...updatedPreferences.notifications,
-        ...data
-      } as NotificationPreferences;
+        
+        // First get current preferences
+        const { data: currentData, error: fetchError } = await supabase
+          .from('users')
+          .select('preferences')
+          .eq('id', user.id)
+          .maybeSingle();
+        
+        if (fetchError) throw fetchError;
+        
+        // If no preferences exist, start with defaults
+        const currentPreferences = currentData?.preferences || {
+          language: 'fr',
+          timezone: 'Europe/Paris',
+          notifications: defaultPreferences
+        };
+        
+        // Update notification preferences
+        const updatedPreferences = {
+          ...currentPreferences,
+          notifications: {
+            ...currentPreferences.notifications,
+            ...data
+          }
+        };
+        
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({ preferences: updatedPreferences })
+          .eq('id', user.id);
+        
+        if (updateError) throw updateError;
+        
+        // Return updated preferences
+        return {
+          ...defaultPreferences,
+          ...updatedPreferences.notifications,
+          ...data
+        } as NotificationPreferences;
+      } catch (error) {
+        if (error instanceof TypeError && error.message === 'Failed to fetch') {
+          toast.error('Impossible de mettre à jour les préférences. Vérifiez votre connexion internet.');
+          throw error;
+        }
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications', 'preferences'] });
